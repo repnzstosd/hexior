@@ -50,6 +50,18 @@
     <ClCompile Include="GeneratedFiles\qrc_hexior.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="m68k.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="memory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cia.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="amiga.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="hexior.h">
@@ -65,6 +77,18 @@
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_hexior.h">
       <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="m68k.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cia.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amiga.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

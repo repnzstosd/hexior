@@ -4,16 +4,26 @@
 #include <QtWidgets/QMainWindow>
 #include "ui_hexior.h"
 
-class Hexior : public QMainWindow
-{
+#include "amiga.h"
+
+class Hexior : public QMainWindow {
 	Q_OBJECT
 
-public:
-	Hexior(QWidget *parent = 0);
-	~Hexior();
+	public:
+		Hexior(QWidget *parent = 0);
+		~Hexior();
 
-private:
-	Ui::HexiorClass ui;
+	private:
+		Ui::HexiorClass ui;
+
+	private:
+		void loadFile(QString filename, uint32_t offset);
+
+	public slots:
+		void getRegisters();
+
+	private:
+		Amiga mAmiga;
 };
 
 #endif // HEXIOR_H

@@ -76,6 +76,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="amiga.cpp" />
+    <ClCompile Include="cia.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_hexior.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
@@ -89,7 +91,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="hexior.cpp" />
+    <ClCompile Include="m68k.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="memory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="hexior.h">
@@ -116,7 +120,11 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="amiga.h" />
+    <ClInclude Include="cia.h" />
     <ClInclude Include="GeneratedFiles\ui_hexior.h" />
+    <ClInclude Include="m68k.h" />
+    <ClInclude Include="memory.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="hexior.qrc">
