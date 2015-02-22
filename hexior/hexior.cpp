@@ -38,6 +38,19 @@ void Hexior::getRegisters() {
 	ui.valuePC->setText(QString("%1").arg(mAmiga.mM68K.mPC, 8, 16, QLatin1Char('0')));
 
 	ui.textEdit->append(QString("%1").arg(mAmiga.mM68K.mSR.SR, 0, 16));
+
+	ui.textEdit->append(QString("%1").arg(mAmiga.mM68K.readWord(0x20075e), 0, 16));
+
+	for(int j = 0; j < 6; ++j) {
+		QString foo;
+		foo = QString("%1: ").arg(mAmiga.mM68K.mAddressRegister[7] + (j * 6 * 4), 8, 16);
+		for(int i = 0; i < 6; ++i) {
+			foo += QString("%1 ").arg(mAmiga.mM68K.readLong(mAmiga.mM68K.mAddressRegister[7] + (i * 4 + (j * 6 * 4))), 8, 16, QLatin1Char('0'));
+		}
+		ui.textEdit->append(foo);
+	}
+
+
 }
 
 void Hexior::loadFile(QString filename, uint32_t offset) {
