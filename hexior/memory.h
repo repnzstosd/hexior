@@ -1,16 +1,21 @@
 #pragma once
 
 #include <stdint.h>
-
+#include <vector>
 
 class Memory {
 	public:
-		Memory(uint32_t memoryOffset, uint32_t size);
+		Memory();
 		~Memory();
 
-	public:
-		uint32_t	mOffset;
-		uint32_t	mSize;
-		uint8_t		*mData;
+		void alloc(uint32_t memoryOffset, uint32_t size);
 
+	public:
+		struct mem {
+			uint32_t	mOffset;
+			uint32_t	mSize;
+			uint8_t		*mData;
+		};
+
+		std::vector<mem> mMemoryList;
 };

@@ -16,9 +16,6 @@ class Hexior : public QMainWindow {
 	private:
 		Ui::HexiorClass ui;
 
-	private:
-		void loadFile(QString filename, uint32_t offset);
-
 	public slots:
 		void getRegisters();
 

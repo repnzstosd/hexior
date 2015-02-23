@@ -73,6 +73,9 @@
     <CustomBuild Include="hexior.qrc">
       <Filter>Resource Files</Filter>
     </CustomBuild>
+    <CustomBuild Include="amiga.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_hexior.h">
@@ -85,9 +88,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cia.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="amiga.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

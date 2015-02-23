@@ -3,12 +3,7 @@
 #include <qdir.h>
 
 Hexior::Hexior(QWidget *parent) : QMainWindow(parent) {
-
-
 	ui.setupUi(this);
-	loadFile("Soundtracker-IV", 0x200000);
-	mAmiga.mM68K.reset();
-	getRegisters();
 }
 
 void Hexior::getRegisters() {
@@ -51,18 +46,6 @@ void Hexior::getRegisters() {
 	}
 
 
-}
-
-void Hexior::loadFile(QString filename, uint32_t offset) {
-	QByteArray temp;
-	QString foo = QDir::currentPath() + QDir::separator() + filename;
-	QFile file(foo);
-	file.open(QIODevice::ReadOnly);
-	temp = file.readAll();
-	for(int i = 0 ; i < temp.size() ; ++i) {
-		mAmiga.mM68K.writeByte(offset + i, temp.at(i));
-	}
-	file.close();
 }
 
 Hexior::~Hexior() {

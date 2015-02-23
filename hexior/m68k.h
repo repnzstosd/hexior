@@ -12,7 +12,7 @@ class M68K {
 		M68K(void);
 		~M68K(void);
 
-		void	initialize(std::vector<Memory> *memoryList);
+		void	initialize(std::vector<Memory::mem> *memoryList);
 		int		step();
 
 		void	reset();
@@ -52,6 +52,6 @@ class M68K {
 		uint32_t	mPC;				// only the lower 24bits are used on m68k.
 
 	private:
-		std::vector<Memory>	*mMemory;
+		std::vector<Memory::mem>	*mMemory;
 };
 
