@@ -4,6 +4,18 @@
 
 Hexior::Hexior(QWidget *parent) : QMainWindow(parent) {
 	ui.setupUi(this);
+
+
+	for(int j = 0; j < 6; ++j) {
+		QString foo;
+		foo = QString("%1: ").arg(0x9000 + (j * 6 * 4), 8, 16);
+		for(int i = 0; i < 6; ++i) {
+			foo += QString("%1 ").arg(mAmiga.mM68K.readLong(0x9000 + (i * 4 + (j * 6 * 4))), 8, 16, QLatin1Char('0'));
+		}
+		ui.textEdit->append(foo);
+	}
+
+
 }
 
 void Hexior::getRegisters() {

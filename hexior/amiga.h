@@ -20,7 +20,8 @@ class Amiga {
 		Amiga();
 		~Amiga();
 
-		uint32_t loadFile(QString filename, uint32_t offset);
+		uint32_t	loadFile(QString filename, uint32_t offset);
+		bool			relocate(QByteArray *data);
 
 //	bool	loadPlayer();
 //	bool	moduletype();
