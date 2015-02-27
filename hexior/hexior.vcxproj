@@ -78,6 +78,7 @@
   <ItemGroup>
     <ClCompile Include="amiga.cpp" />
     <ClCompile Include="cia.cpp" />
+    <ClCompile Include="delitracker.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_hexior.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
@@ -135,6 +136,7 @@
       </Command>
     </CustomBuild>
     <ClInclude Include="cia.h" />
+    <ClInclude Include="delitracker.h" />
     <ClInclude Include="GeneratedFiles\ui_hexior.h" />
     <ClInclude Include="m68k.h" />
     <ClInclude Include="memory.h" />

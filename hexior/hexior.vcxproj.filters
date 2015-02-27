@@ -62,6 +62,9 @@
     <ClCompile Include="amiga.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="delitracker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="hexior.h">
@@ -88,6 +91,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cia.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="delitracker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

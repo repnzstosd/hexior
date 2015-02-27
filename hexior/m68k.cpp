@@ -73,62 +73,14 @@ int M68K::step() {
 					uint32_t destination = 0;
 					uint32_t source = 0;
 
-					switch(mode) {
-						case 0: // Dn
-							if(size == 0) destination = mDataRegister[reg] & 0xff;
-							if(size == 1) destination = mDataRegister[reg] & 0xffff;
-							if(size == 2) destination = mDataRegister[reg];
-							break;
-
-						case 2: // (An)
-							if(size == 0) destination = readWord(mAddressRegister[reg]) & 0xff;
-							if(size == 1) destination = readWord(mAddressRegister[reg]);
-							if(size == 2) destination = readLong(mAddressRegister[reg]);
-							break;
-
-						case 3: // (An)+
-							if(size == 0) { destination = readByte(mAddressRegister[reg]) & 0xff;		mAddressRegister[reg] += 1; }
-							if(size == 1) { destination = readWord(mAddressRegister[reg]);					mAddressRegister[reg] += 2; }
-							if(size == 2) { destination = readLong(mAddressRegister[reg]);					mAddressRegister[reg] += 4; }
-							break;
-
-						case 4: // -(An)
-							if(size == 0) { mAddressRegister[reg] -= 1; destination = readByte(mAddressRegister[reg]) & 0xff;	 }
-							if(size == 1) { mAddressRegister[reg] -= 2; destination = readWord(mAddressRegister[reg]); }
-							if(size == 2) { mAddressRegister[reg] -= 4; destination = readLong(mAddressRegister[reg]); }
-							break;
-
-						case 5: // (d16,An)
-							break;
-
-						case 6: // (d8, An, Xn)
-							break;
-
-						case 7: // (misc.. have fun...)
-							break;
-					}
-
 					if(size == 0) { source = readWord(mPC) & 0xff;	mPC += 2; }
 					if(size == 1) { source = readWord(mPC);					mPC += 2; }
 					if(size == 2) { source = readLong(mPC);					mPC += 4; }
+					destination = readData(mode, reg, size);
 
-					int32_t res = destination - source;
+					int64_t res = destination - source;
 
-// TEMPORARILY DISABLED
-
-					//mSR.CCR &= ~(SRF::carry | SRF::negative | SRF::zero | SRF::overflow);
-					//if(uint32_t(res) > uint32_t(destination)) mSR.CCR |= SRF::carry;
-
-					//if(!(((source < 0) && (destination < 0)) || ((source > 0) && (destination > 0)))) {
-					//	if(((res > 0) && (destination < 0)) || ((res < 0) && (destination > 0))) {
-					//		mSR.CCR |= SRF::overflow;
-					//	}
-					//}
-
-					//if(res == 0) mSR.CCR |= SRF::zero;
-					//if(res < 0) mSR.CCR |= SRF::negative;
-
-
+					setFlags(Flags::CMP, size, res, source, destination);
 
 			}
 			break;
@@ -230,6 +182,19 @@ int M68K::step() {
 				uint32_t		reg			= (instruction) & 0x7;
 
 				if((instruction & 0x50f8) == 0x50c8) {					// DBcc
+					uint8_t reg = instruction & 0x7;
+					uint8_t cond = (instruction >> 8) & 0xf;
+					int16_t displacement = readWord(mPC);
+
+					if(!checkCondition(cond)) {
+						mDataRegister[reg].w -= 1;
+						if(int16_t(mDataRegister[reg].w) != -1) {
+							mPC += int16_t(displacement);
+						} else {
+							mPC += 2;
+						}
+					}
+
 				} else if((instruction & 0x50f8) == 0x50c0) {		// Scc
 				} else {																				// ADDQ/SUBQ
 					uint32_t res = 0;
@@ -247,122 +212,44 @@ int M68K::step() {
 			break;
 
 		case 0x6:	{	// Bcc, BRA, BSR
+			int32_t displacement = 0;
+			displacement = int8_t(instruction & 0xff);
 
-			bool jump = false;
-
-			switch (instruction & 0x6f00) {
-
-/*
-
-The following routine returns whether to take the branch or not, universal for bsr, bra, bcc
-
-Switch on instruction >> 8 & f
-
-// truth table...
-	case 0: return	true;
-	case 1: return	false;
-	case 2: return	!(mSR.CCR & SRF::carry) & !(mSR.CCR & SRF::zero);
-	case 3: return	 (mSR.CCR & SRF::carry) |  (mSR.CCR & SRF::zero);
-	case 4: return	!(mSR.CCR & SRF::carry);
-	case 5: return	 (mSR.CCR & SRF::carry);
-	case 6: return	!(mSR.CCR & SRF::zero);
-	case 7: return	 (mSR.CCR & SRF::zero);
-	case 8: return	!(mSR.CCR & SRF::overflow);
-	case 9: return	 (mSR.CCR & SRF::overflow);
-	case 10: return	!(mSR.CCR & SRF::negative);
-	case 11: return	 (mSR.CCR & SRF::negative);
-	case 12: return	!((mSR.CCR & SRF::negative) ^ (mSR.CCR & SRF::overflow));
-	case 13: return		(mSR.CCR & SRF::negative) ^ (mSR.CCR & SRF::overflow);
-
-	case 14: return ( (mSR.CCR & SRF::negative) &  (mSR.CCR & SRF::overflow) & !(mSR.CCR & SRF::zero)) |
-									(!(mSR.CCR & SRF::negative) & !(mSR.CCR & SRF::overflow) & !(mSR.CCR & SRF::zero));
-
-	case 15: return (mSR.CCR & SRF::zero) | ( (mSR.CCR & SRF::negative) & !(mSR.CCR & SRF::overflow)) |
-																					(!(mSR.CCR & SRF::negative) &  (mSR.CCR & SRF::overflow));
-
-
-
-*/
-
-
-
-				case 0x6000: { // BRA
-						int16_t displacement = 0;
-						if(!(displacement = instruction & 0xff)) {
-							displacement = readWord(mPC);
-						} else {
-							if(displacement & 0x80) displacement |= 0xffffff00;
-						}
-						mPC += displacement;
+			switch((instruction >> 8) & 0xf ) {
+				case 0:		// BRA
+					if(displacement == 0) {						// 16bit displacement if 0x00
+						displacement = int16_t(readWord(mPC));
 					}
+					mPC += displacement;
 					break;
 
-				case 0x6100: {	// BSR (complete)
-						uint16_t displacement = 0;
+				case 1:	{		// BSR
 						mAddressRegister[7] -= 4;
-						if(!(displacement = instruction & 0xff)) {
-							displacement = readWord(mPC);
+						if(displacement == 0) {						// 16bit displacement if 0x00
+							displacement = int16_t(readWord(mPC));
 							writeLong(mAddressRegister[7], mPC + 2);
 						} else {
-							if(displacement & 0x80) displacement |= 0xffffff00;
 							writeLong(mAddressRegister[7], mPC);
 						}
 						mPC += displacement;
 					}
 					break;
 
-				case 0x6200:	// BHI
-				case 0x6e00:	// BGT
-				case 0x6a00:	// BPL
-					//if(!((mSR.CCR & SRF::negative) | (mSR.CCR & SRF::zero))) {
-					//	branch(instruction);
-					//} else {
-					//	if(!(instruction & 0xf)) mPC += 2;
-					//}
+				default:	// for all other cases than (TRUE and FALSE (0 and 1))
+					if(checkCondition((instruction >> 8) & 0xf)) {
+						if(displacement == 0) {
+							displacement = int16_t(readWord(mPC));
+						}
+						mPC += displacement;
+					} else {
+						if(displacement == 0) {
+							mPC += 2;
+						}
+					}
 					break;
-
-				case 0x6300:	// BLS
-				case 0x6f00:	// BLE
-					break;
-
-				case 0x6400:	// BCC
-					break;
-
-				case 0x6500:	// BCS
-					break;
-
-				case 0x6600:	// BNE
-					//if(!(mSR.CCR & SRF::zero)) {
-					//	branch(instruction);
-					//} else {
-					//	if(!(instruction & 0xf)) mPC += 2;
-					//}
-					break;
-
-				case 0x6700:	// BEQ
-					//if(mSR.CCR & SRF::zero) {
-					//	branch(instruction);
-					//} else {
-					//	if(!(instruction & 0xf)) mPC += 2;
-					//}
-					break;
-
-				case 0x6800:	// BVC
-					break;
-
-				case 0x6900:	// BVS
-					break;
-
-				case 0x6b00:	// BMI
-				case 0x6d00:	// BLT
-					break;
-
-				case 0x6c00:	// BGE
-					break;
+				}
 			}
-
 			break;
-		}
 
 		case 0x7:	{		// MOVEQ
 				uint8_t reg		= uint8_t((instruction >> 9) & 7);
@@ -415,19 +302,6 @@ Switch on instruction >> 8 & f
 					res = destination - source;
 
 					setFlags(Flags::CMP, operationSize, res, source, destination);
-	// TEMP DISABLED
-
-					//mSR.CCR &= ~(SRF::carry | SRF::negative | SRF::zero | SRF::overflow);
-
-					//if(res == 0)															mSR.CCR |= SRF::zero;
-					//if(res < 0)																mSR.CCR |= SRF::negative;
-					//if(uint32_t(res) > uint32_t(destination)) mSR.CCR |= SRF::carry;
-
-					//if(!(((source < 0) && (destination < 0)) || ((source > 0) && (destination > 0)))) {
-					//	if(((res > 0) && (destination < 0)) || ((res < 0) && (destination > 0))) {
-					//		mSR.CCR |= SRF::overflow;
-					//	}
-					//}
 
 					break;
 			}
@@ -490,6 +364,19 @@ Switch on instruction >> 8 & f
 			break;
 
 		case 0x4afb:	// illegal
+/*
+
+SSP -= 2				-> SSP
+Vector Offset		-> (SSP)
+SSP -= 4				-> SSP
+PC							-> (SSP)
+SSP -= 2				-> SSP
+SR							-> (SSP)
+ILLEGAL instruction vector Address -> PC
+
+*/
+
+
 			break;
 
 		case 0x4e70:	// reset
@@ -555,6 +442,27 @@ uint32_t M68K::maskValue(uint32_t value, uint8_t size) {
 	return value & getMask(size);
 }
 
+bool M68K::checkCondition(uint8_t conditionCode) {
+	switch(conditionCode & 0xf) {
+		case 0: return	true;
+		case 1: return	false;
+		case 2: return	!mSR.carry & !mSR.zero;
+		case 3: return	mSR.carry |  mSR.zero;
+		case 4: return	!mSR.carry;
+		case 5: return	mSR.carry;
+		case 6: return	!mSR.zero;
+		case 7: return	mSR.zero;
+		case 8: return	!mSR.overflow;
+		case 9: return	mSR.overflow;
+		case 10: return	!mSR.negative;
+		case 11: return	mSR.negative;
+		case 12: return	!(mSR.negative ^ mSR.overflow);
+		case 13: return	mSR.negative ^ mSR.overflow;
+		case 14: return	(mSR.negative &  mSR.overflow & !mSR.zero) | (!mSR.negative & !mSR.overflow & !mSR.zero);
+		case 15: return	mSR.zero | (mSR.negative & !mSR.overflow) | (!mSR.negative & mSR.overflow);
+	}
+	return false;
+}
 
 void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source, uint32_t dest) {
 
@@ -576,9 +484,9 @@ void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source
 			mSR.negative	= resultNegative;
 			// no break
 		case Flags::SUBX:
-			mSR.carry = (result >> getBits(size)) & 1;
+			mSR.carry			= (result >> getBits(size)) & 1;
 			if(type != Flags::CMP) mSR.extend = mSR.carry;
-			mSR.overflow = (sourceNegative ^ destNegative) & (resultNegative ^ destNegative);
+			mSR.overflow	= (sourceNegative ^ destNegative) & (resultNegative ^ destNegative);
 			break;
 
 		case Flags::ADD:
@@ -586,9 +494,9 @@ void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source
 			mSR.negative	= resultNegative;
 			// no break
 		case Flags::ADDX:
-			mSR.carry = (result >> getBits(size)) & 1;
-			mSR.extend = mSR.carry;
-			mSR.overflow = (sourceNegative ^ resultNegative) & (destNegative ^ resultNegative);
+			mSR.carry			= (result >> getBits(size)) & 1;
+			mSR.extend		= mSR.carry;
+			mSR.overflow	= (sourceNegative ^ resultNegative) & (destNegative ^ resultNegative);
 			break;
 
 		case Flags::ZN:
