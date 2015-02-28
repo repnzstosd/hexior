@@ -421,8 +421,6 @@ int M68K::step() {
 					break;
 			}
 
-			// ASd, LSd, ROXd, ROd
-
 		case 0xf:
 			// Fpu...
 
