@@ -1,13 +1,61 @@
 #include "m68k.h"
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ TODO ]}====- -===- -==- -==- -=- --- -- -  -   -
+
+-={[ Memory handling ]}=-
+
+  Add own memory handling for blocks of memory; dividing the memory into 64kb-blocks makes it easier for everyone.
+
+  Perhaps by creating an array that consists of structs; similar to what UAE uses, and I guess winuae also
+
+	memoryBlock[65536];
+
+	Each of the memoryblocks contain a structure similar to this
+
+struct block {
+	uint32_t	*readByte;
+	uint32_t	*readWord;
+	uint32_t	*readLong;
+	uint32_t	*writeByte;
+	uint32_t	*writeWord;
+	uint32_t	*writeLong;
+	uint32_t	*memory;
+};
+
+	When we call the readByte()-function we do so with the original pointer, no subtracting the offset or so. ***this may change***
+	this way we can add "hardware" by calling a function in the M68K-class to add blocks to a memory area where that hardware take care of the read/writes
+  that mean it's easier to implement for example CIA, as it doesn't have to ask the M68K-class for the words it need, it has already stored that information.
+  Same for Paula and other similar coprocessors.
+
+*/
+
 M68K::M68K() {
 }
 
 M68K::~M68K() {
 }
 
+uint32_t M68K::dummy_rw(uint32_t offset) {
+	return 0;
+}
+
 void M68K::initialize(std::vector<Memory::mem> *memoryList) {
-	mMemory = memoryList;
+	memoryBank dummy_bank = {
+		dummy_rw, dummy_rw, dummy_rw,
+		dummy_rw, dummy_rw, dummy_rw,
+//		dummy_rw, dummy_rw,								// translate, check
+		0, "Dummy", "Dummy memory",
+//		dummy_rw, dummy_rw		// readLongInstr, readWordInstr
+		0, 0, 0, 0
+	};
+
+	for(int i = 0; i < 65536; ++i) {			// initialize all memoryBanks to dummy_bank that will just return 0 for all memory accesses.
+		mMemoryBanks[i] = &dummy_bank;
+	}
+
+//	mMemoryBanks[0]->baseAddress;
+
+	mMemory = memoryList;	// this should be ripped out and replaced with something the CPU handles...
 }
 
 void M68K::reset() {
@@ -400,6 +448,7 @@ ILLEGAL instruction vector Address -> PC
 			break;
 
 		case 0x4e76:	// trapv
+
 			break;
 
 		case 0x4e77:	// rtr
@@ -420,7 +469,7 @@ uint32_t M68K::getMSB(uint8_t size) {
 	}
 }
 
-uint8_t M68K::getBits(uint8_t size) {
+uint8_t M68K::bitSize(uint8_t size) {
 	switch(size) {
 		case Size::BYTE:	return 8;
 		case Size::WORD:	return 16;
@@ -429,7 +478,7 @@ uint8_t M68K::getBits(uint8_t size) {
 	}
 }
 
-uint32_t M68K::getMask(uint8_t size) {
+uint32_t M68K::bitMask(uint8_t size) {
 	switch(size) {
 		case Size::BYTE:	return 0xff;
 		case Size::WORD:	return 0xffff;
@@ -439,7 +488,7 @@ uint32_t M68K::getMask(uint8_t size) {
 }
 
 uint32_t M68K::maskValue(uint32_t value, uint8_t size) {
-	return value & getMask(size);
+	return value & bitMask(size);
 }
 
 bool M68K::checkCondition(uint8_t conditionCode) {
@@ -484,7 +533,7 @@ void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source
 			mSR.negative	= resultNegative;
 			// no break
 		case Flags::SUBX:
-			mSR.carry			= (result >> getBits(size)) & 1;
+			mSR.carry			= (result >> bitSize(size)) & 1;
 			if(type != Flags::CMP) mSR.extend = mSR.carry;
 			mSR.overflow	= (sourceNegative ^ destNegative) & (resultNegative ^ destNegative);
 			break;
@@ -494,7 +543,7 @@ void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source
 			mSR.negative	= resultNegative;
 			// no break
 		case Flags::ADDX:
-			mSR.carry			= (result >> getBits(size)) & 1;
+			mSR.carry			= (result >> bitSize(size)) & 1;
 			mSR.extend		= mSR.carry;
 			mSR.overflow	= (sourceNegative ^ resultNegative) & (destNegative ^ resultNegative);
 			break;

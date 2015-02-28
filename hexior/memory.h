@@ -17,5 +17,5 @@ class Memory {
 			uint8_t		*mData;
 		};
 
-		std::vector<mem> mMemoryList;
+		std::vector<mem> mMemoryList;				// REMOVE ME to become obsolete.
 };

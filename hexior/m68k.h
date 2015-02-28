@@ -7,6 +7,74 @@
 //
 #include "memory.h"
 
+struct VectorTable {
+	uint32_t	resetInitialSSP;
+	uint32_t	resetInitialPC;
+	uint32_t	accessFault;
+	uint32_t	addressError;
+	uint32_t	illegalInstruction;
+	uint32_t	intDivideByZero;
+	uint32_t	ChkInstruction;			// Both CHK and CHK2
+	uint32_t	trapV;							// FTRAPcc TRAPcc and TRAPV
+	uint32_t	privilegeViolation;
+	uint32_t	trace;
+	uint32_t	lineAEmulator;
+	uint32_t	lineFEmulator;
+	uint32_t	reserved12;
+	uint32_t	coprocessorProtocolViolation;
+	uint32_t	formatError;
+	uint32_t	unitinializedInterrupt;
+	uint32_t	reserved16;
+	uint32_t	reserved17;
+	uint32_t	reserved18;
+	uint32_t	reserved19;
+	uint32_t	reserved20;
+	uint32_t	reserved21;
+	uint32_t	reserved22;
+	uint32_t	reserved23;
+	uint32_t	spuriousInterrupt;
+	uint32_t	level1Interrupt;
+	uint32_t	level2Interrupt;
+	uint32_t	level3Interrupt;
+	uint32_t	level4Interrupt;
+	uint32_t	level5Interrupt;
+	uint32_t	level6Interrupt;
+	uint32_t	level7Interrupt;
+	uint32_t	trap0;
+	uint32_t	trap1;
+	uint32_t	trap2;
+	uint32_t	trap3;
+	uint32_t	trap4;
+	uint32_t	trap5;
+	uint32_t	trap6;
+	uint32_t	trap7;
+	uint32_t	trap8;
+	uint32_t	trap9;
+	uint32_t	trap10;
+	uint32_t	trap11;
+	uint32_t	trap12;
+	uint32_t	trap13;
+	uint32_t	trap14;
+	uint32_t	trap15;
+	uint32_t	fpBranch;					// FP Branch or Set on Unordered Condition
+	uint32_t	fpInexact;
+	uint32_t	fpDivByZero;
+	uint32_t	fpUnderflow;
+	uint32_t	fpOperandError;
+	uint32_t	fpOverflow;
+	uint32_t	fpSignalingNAN;
+	uint32_t	fpUnimplementedDataType;
+	uint32_t	mmuConfigurationError;
+	uint32_t	mmuIllegalOperationError;
+	uint32_t	mmuAccessLevelViolationError;
+	uint32_t	reserved59;
+	uint32_t	reserved60;
+	uint32_t	reserved61;
+	uint32_t	reserved62;
+	uint32_t	reserved63;
+	uint32_t	userDefinedVectors[192];	// 64-255
+};
+
 enum Interrupt {
 	USER_VECTOR,
 	AUTO_VECTOR,
@@ -29,6 +97,39 @@ enum Size {
 	WORD = 1,
 	LONG = 2
 };
+
+/*
+
+addrbank fastmem_bank = {
+	fastmem_lget, fastmem_wget, fastmem_bget,
+	fastmem_lput, fastmem_wput, fastmem_bput,
+	fastmem_xlate, fastmem_check, NULL, _T("fast"), _T("Fast memory"),
+	fastmem_lget, fastmem_wget, ABFLAG_RAM | ABFLAG_THREADSAFE
+};
+
+memoryBank	*memBanks[65536];			// entire 32bit memory, 4gb.
+uint8_t			*baseAddress[65536];	// baseAddress if even, else if bit 0 is set, its the same pointer as memBanks and is a bank that has baseaddress=0 (no allocated memory).
+
+
+mem_banks[bankindex(addr)] = &fastmem_bank;		// adds a pointer to a memorybank to the mem_banks-array, so we can use the memory..
+
+
+	uint8_t *m;
+	addr -= name_bank.start & name_bank.mask;
+	addr &= name_bank.mask;
+	m = name_bank.baseaddr+addr;
+	do_put_mem_word((uint16_t *)m, w);
+
+static void do_put_mem_long(void *a, uae_u32 v) {
+       uae_u8 *b = (uae_u8 *)a;
+
+       b[0] = v >> 24;
+       b[1] = v >> 16;    
+       b[2] = v >> 8;
+       b[3] = v;
+}
+*/
+
 
 struct RegisterState {
 	union {
@@ -76,12 +177,33 @@ struct Register32 {
 	Register32() : d(0) {}
 };
 
+typedef uint32_t (*readMemFunc)(uint32_t offset);
+typedef uint32_t (*writeMemFunc)(uint32_t offset);
+typedef uint32_t (*checkMemFunc)(uint32_t offset);	// check if present.
+
+struct memoryBank {
+	readMemFunc		readByte, readWord, readLong;
+	writeMemFunc	writeByte, writeWord, writeLong;
+	// translate function															// return a uint8_t *mem; pointer that we can use to extract memory without using the normal read/write functions. (debugging et.c)
+	// check function																	// returns bool, if we can read/write to this address. if(memBank.check(0x490000)) {...
+	uint8_t				*baseAddress;												// where to write is calculated: uint8_t *destAddr = ((addr - memoryBank.start) & memoryBank.mask) + baseAddress;
+	const char		*label;															// "batmem"
+	const char		*name;															// "Battery backed up clock (MSM6242B)"
+//	readMemFunc		readWordInstr, readLongInstr;			// for opcode/operand fetches
+	uint32_t			flags;
+	uint32_t			mask;																// mask is used to mask the pointer to be inside the allocation. ie  mask = .size-1 as size should be dividable by 64k
+	uint32_t			start;
+	uint32_t			memSize;
+};
+
 class M68K {
+	public:
+
 	public:
 		M68K(void);
 		~M68K(void);
 
-		void	initialize(std::vector<Memory::mem> *memoryList);
+		void			initialize(std::vector<Memory::mem> *memoryList);
 
 		void			power();	// hard reset, also reset exception
 		void			reset();	// reset exception
@@ -115,30 +237,13 @@ class M68K {
 		bool			checkCondition(uint8_t conditionCode);
 		void			setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source, uint32_t dest);
 
-		uint8_t		getBits(uint8_t size);
+		uint8_t		bitSize(uint8_t size);
 		uint32_t	getMSB(uint8_t size);
-		uint32_t	getMask(uint8_t size);
+		uint32_t	bitMask(uint8_t size);
 		uint32_t	maskValue(uint32_t value, uint8_t size);
 
+
 	public:
-		//union {
-		//	uint16_t	SR;
-		//	uint8_t		CCR;
-		//} mSR;
-
-		//enum SRF {
-		//	carry				= 1 << 0,
-		//	overflow		= 1 << 1,
-		//	zero				= 1 << 2,
-		//	negative		= 1 << 3,
-		//	extend			= 1 << 4,
-		//	intMask0		= 1 << 8,
-		//	intMask1		= 1 << 9,
-		//	intMask2		= 1 << 10,
-		//	supervisor	= 1 << 13,
-		//	traceMode		= 1 << 15,
-		//};
-
 		RegisterState		mSR;
 		Register32			mDataRegister[8];
 		Register32			mAddressRegister[8];
@@ -153,6 +258,9 @@ class M68K {
 		uint32_t				mPC;				// only the lower 24bits are used on m68k.
 
 	private:
-		std::vector<Memory::mem>	*mMemory;
-};
+		static uint32_t	dummy_rw(uint32_t offset);
 
+		std::vector<Memory::mem>	*mMemory;			// REMOVE ME; soon to be obsolete.
+
+		memoryBank	*mMemoryBanks[65536];
+};
