@@ -157,11 +157,25 @@ int M68K::step() {
 			}
 			break;
 
-
 		case 0x4:
-			// NEGX, MOVE from SR, CHK, LEA, CLR, NEG, MOVE to CCR, NOT, MOVE to SR, NBCD, PEA, SWAP, MOVEM, EXT, TST, TAS, TRAP, LINK, UNLK, MOVE USP, JSR, JMP
-			switch (instruction & 0xfb80) {
+			switch (instruction & 0xf1c0) {	// LEA, CHK
+				case 0x41c0: {	// LEA	0100xxx111xxxxxx
+						uint8_t mode = (instruction >> 3) & 0x7;
+						uint8_t reg = (instruction) & 0x7;
+						uint8_t	destReg = (instruction >> 9) & 0x7;
 
+						mAddressRegister[destReg] = readData(mode, reg, Size::LONG);
+					}
+					break;
+
+				case 0x4180: {	// CHK 0100xxx110xxxxxx	-- SIZE is WORD for destination. x110xx the 11 is WORD
+					}
+					break;
+			}
+
+			// NEGX, MOVE from SR, CLR, NEG, MOVE to CCR, NOT, MOVE to SR, NBCD, PEA, SWAP, MOVEM, EXT, TST, TAS, TRAP, LINK, UNLK, MOVE USP, JSR, JMP
+
+			switch (instruction & 0xfb80) {
 				case 0x4e80: {	// JSR
 						uint8_t mode = (instruction >> 3) & 0x7;
 						uint8_t reg = (instruction) & 0x7;
@@ -220,6 +234,7 @@ int M68K::step() {
 					}
 				break;
 			}
+			break;
 
 		case 0x5: {
 				uint32_t		data		= (instruction >> 9) & 0x7;
@@ -384,6 +399,28 @@ int M68K::step() {
 			break;
 
 		case 0xe:
+			switch (instruction & 0xeec0) {
+				case 0xe0c0:	// ASd	- Memory
+					break;
+				case 0xe2c0:	// LSd	- Memory
+					break;
+				case 0xe4c0:	// ROXd	- Memory
+					break;
+				case 0xe6c0:	// ROd	- Memory
+					break;
+			}
+
+			switch (instruction & 0xe018) {
+				case 0xe000:	// ASd
+					break;
+				case 0xe008:	// LSd
+					break;
+				case 0xe010:	// ROXd
+					break;
+				case 0xe018:	// ROd
+					break;
+			}
+
 			// ASd, LSd, ROXd, ROd
 
 		case 0xf:
@@ -718,10 +755,13 @@ uint32_t M68K::readData(uint8_t sourceMode, uint8_t sourceRegister, uint8_t oper
 		}
 
 	} else if((sourceMode == 0x7) && (sourceRegister == 0x2)) {		// (d16, PC)
-		if(operationSize == 0) { // byte
-		} else if(operationSize == 1) { // word
-		} else if(operationSize == 2) { // long
-		}
+		res = readWord(mPC);
+		res += mPC;
+		mPC += 2;
+		//if(operationSize == 0) { // byte
+		//} else if(operationSize == 1) { // word
+		//} else if(operationSize == 2) { // long
+		//}
 
 	} else if((sourceMode == 0x7) && (sourceRegister == 0x3)) {		// (d8, PC, Xn)
 		if(operationSize == 0) { // byte

@@ -87,7 +87,7 @@ Amiga::Amiga() {
 	mM68K.mAddressRegister[7] = userStack;
 	mM68K.mSSP								= supervisorStack;
 	mM68K.writeLong(0x4, kernelAddress);
-	mM68K.writeLong(0x4, playerAddress + 0x20 + 0x1b4);			// test! where to start execution...
+	mM68K.writeLong(0x4, playerAddress + 0x20 + 0x1d6);			// test! where to start execution...
 	loadFile("Soundtracker-IV", playerAddress);
 
 	mM68K.reset();
