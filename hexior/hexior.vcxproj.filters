@@ -96,5 +96,8 @@
     <ClInclude Include="delitracker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="m68kStructures.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

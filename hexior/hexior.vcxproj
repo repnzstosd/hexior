@@ -139,6 +139,7 @@
     <ClInclude Include="delitracker.h" />
     <ClInclude Include="GeneratedFiles\ui_hexior.h" />
     <ClInclude Include="m68k.h" />
+    <ClInclude Include="m68kStructures.h" />
     <ClInclude Include="memory.h" />
   </ItemGroup>
   <ItemGroup>
