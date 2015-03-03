@@ -222,13 +222,9 @@ int M68K::step() {
 			}
 
 			// NEGX, MOVE from SR, CLR, NEG, MOVE to CCR, NOT, MOVE to SR, NBCD, PEA, SWAP, MOVEM, EXT, TST, TAS, TRAP, LINK, UNLK, MOVE USP, JSR, JMP
-
-link	0100 1110 0101 0xxx
-unlk	0100 1110 0101 1xxx
-
 				case 0x4e50: {	// link		-==- SP - 4 -> SP; An -> (SP); SP -> An; SP + dn -> SP -==-
 						uint8_t	reg = instruction & 0x7;
-						int16_t		displacement = readWord[mPC];			// if we are to support 68020+ this could be a long.
+						int16_t		displacement = readWord(mPC);			// if we are to support 68020+ this could be a long.
 						mAddressRegister[7] -= 4;
 						writeWord(mAddressRegister[7], mAddressRegister[reg]);
 						mAddressRegister[reg] = mAddressRegister[7];
