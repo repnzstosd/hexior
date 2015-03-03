@@ -35,8 +35,8 @@ class M68K {
 		void			writeLong(uint32_t offset, uint32_t data);
 
 		void			branch(uint16_t instruction);
-		uint32_t	readData(uint8_t sourceMode, uint8_t sourceRegister, uint8_t operationSize);
-		uint32_t	writeData(uint8_t sourceMode, uint8_t sourceRegister, uint8_t operationSize, uint32_t res);
+		uint32_t	readData(uint8_t mode, uint8_t reg, uint8_t operationSize);
+		uint32_t	writeData(uint8_t mode, uint8_t reg, uint8_t operationSize, uint32_t res);
 
 	private:
 		uint32_t	getInterruptVector(uint8_t level);

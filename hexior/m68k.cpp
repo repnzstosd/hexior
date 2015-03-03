@@ -111,30 +111,78 @@ int M68K::step() {
 	switch(instruction >> 12) {
 		case 0x0:
 			// ORI, BTST, MOVEP, BCHG, BCLR, BSET, ANDI, SUBI, ADDI, EORI, CMPI
-			switch (instruction & 0xe00) {
+			switch (instruction & 0x0f00) {
 
-				case 0xc00:		// CMPI
-					uint8_t size = (instruction >> 6) & 0x3;
-					uint8_t mode = (instruction >> 3) & 0x7;
-					uint8_t reg = instruction & 7;
+				case 0x0000:	// ORI
+					break;
+				case 0x0200:	// andi
+					break;
+				case 0x0400:	// subi
+					break;
+				case 0x0600:	// addi
+					break;
+				case 0x0a00:	// eori
+					break;
 
-					uint32_t destination = 0;
-					uint32_t source = 0;
+				case 0x0c00: {		// CMPI
+						uint8_t size = (instruction >> 6) & 0x3;
+						uint8_t mode = (instruction >> 3) & 0x7;
+						uint8_t reg = instruction & 7;
 
-					if(size == 0) { source = readWord(mPC) & 0xff;	mPC += 2; }
-					if(size == 1) { source = readWord(mPC);					mPC += 2; }
-					if(size == 2) { source = readLong(mPC);					mPC += 4; }
-					destination = readData(mode, reg, size);
+						uint32_t destination = 0;
+						uint32_t source = 0;
 
-					int64_t res = destination - source;
+						if(size == 0) { source = readWord(mPC) & 0xff;	mPC += 2; }
+						if(size == 1) { source = readWord(mPC);					mPC += 2; }
+						if(size == 2) { source = readLong(mPC);					mPC += 4; }
+						destination = readData(mode, reg, size);
 
-					setFlags(Flags::CMP, size, res, source, destination);
+						int64_t res = destination - source;
+
+						setFlags(Flags::CMP, size, res, source, destination);
+					}
+					break;
+
+				default:
+//				case 0x0100:	// BTST/BCHG/BCLR/BSET Immediate
+//				case 0x0800:	// BTST/BCHG/BCLR/BSET
+					if((instruction & 0x0800) || (instruction & 0x0100)) {
+						uint8_t destMode	= (instruction >> 3) & 0x7;
+						uint8_t destReg		= (instruction) & 0x7;
+						uint8_t shiftReg	= (instruction >> 9) & 0x7;
+						uint8_t immShift	= readWord(mPC);	// if the instruction is immediate we should also add 2 to the PC, else not.
+
+						uint32_t dest = readData(destMode, destReg, Size::BYTE);
+
+						mSR.zero = (dest && 1 << mDataRegister[shiftReg]);
+						dest |= 1 << mDataRegister[shiftReg];
+
+						writeData(destMode, destReg, Size::LONG, dest);
+
+//btst 0000100000xxxxxx
+//bchg 0000100001xxxxxx
+	//dest |= z ? 1<<bit : 0;
+//bclr 0000100010xxxxxx
+	//dest &= ~(1<<bit);
+//bset 0000100011xxxxxx
+	//dest |= 1<<bit;
+
+
+//btst 0000xxx100xxxxxx	// immediate
+//bchg 0000xxx101xxxxxx // immediate
+//bclr 0000xxx110xxxxxx // immediate
+//bset 0000xxx111xxxxxx // immediate
+
+					}
+					break;
 
 			}
 			break;
 
 		case 0x1:		// MOVE .B
+			// No BREAK
 		case 0x2:		// MOVE .L
+			// No BREAK
 		case 0x3: {	// MOVE .W
 				uint8_t		dataSize				= (instruction >> 12) & 3;
 				uint8_t		destRegister		= (instruction >> 9)	& 7;
@@ -174,6 +222,26 @@ int M68K::step() {
 			}
 
 			// NEGX, MOVE from SR, CLR, NEG, MOVE to CCR, NOT, MOVE to SR, NBCD, PEA, SWAP, MOVEM, EXT, TST, TAS, TRAP, LINK, UNLK, MOVE USP, JSR, JMP
+
+link	0100 1110 0101 0xxx
+unlk	0100 1110 0101 1xxx
+
+				case 0x4e50: {	// link		-==- SP - 4 -> SP; An -> (SP); SP -> An; SP + dn -> SP -==-
+						uint8_t	reg = instruction & 0x7;
+						int16_t		displacement = readWord[mPC];			// if we are to support 68020+ this could be a long.
+						mAddressRegister[7] -= 4;
+						writeWord(mAddressRegister[7], mAddressRegister[reg]);
+						mAddressRegister[reg] = mAddressRegister[7];
+						mAddressRegister[7] += displacement;
+					}
+					break;
+
+				case 0x4e58: {	// unlk		-==- An -> SP; (SP) -> An; SP + 4 -> SP
+						uint8_t	reg = instruction & 0x7;
+						mAddressRegister[7] = mAddressRegister[reg];
+						mAddressRegister[7] += 4;
+					}
+					break;
 
 			switch (instruction & 0xfb80) {
 				case 0x4e80: {	// JSR
@@ -325,8 +393,10 @@ int M68K::step() {
 			break;
 
 		case 0x8:		// OR, DIVU, SBCD, DIVS
+			break;
 
 		case 0x9:		// SUB, SUBA, SUBX
+			break;
 
 		case 0xa:		// nope...
 				// ILLEGAL
@@ -370,6 +440,7 @@ int M68K::step() {
 			}
 		case 0xc:
 			// AND, MULU, EXG, ABCD, MULS
+			break;
 
 		case 0xd:
 			// ADD, ADDA, ADDX
@@ -483,7 +554,6 @@ ILLEGAL instruction vector Address -> PC
 			break;
 
 		case 0x4e76:	// trapv
-
 			break;
 
 		case 0x4e77:	// rtr
@@ -685,58 +755,58 @@ uint32_t M68K::writeData(uint8_t destMode, uint8_t destRegister, uint8_t operati
 // for indirect with post/pre-increment/decrement we need to check A7 for special case when reading one byte,
 // a7 can never be odd, so we need to add 2, all other cases 1 *for byte-read*
 //
-uint32_t M68K::readData(uint8_t sourceMode, uint8_t sourceRegister, uint8_t operationSize) {
+uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t operationSize) {
 	uint32_t res = 0;
-	if(sourceMode == 0x0) {																				// Dn
-		if(operationSize == 0) {				res = mDataRegister[sourceRegister] & 0xff;
-		} else if(operationSize == 1) {	res = mDataRegister[sourceRegister] & 0xffff;
-		} else if(operationSize == 2) {	res = mDataRegister[sourceRegister];
+	if(mode == 0x0) {																				// Dn
+		if(operationSize == 0) {				res = mDataRegister[reg] & 0xff;
+		} else if(operationSize == 1) {	res = mDataRegister[reg] & 0xffff;
+		} else if(operationSize == 2) {	res = mDataRegister[reg];
 		}
-	} else if(sourceMode == 0x1) {																// An
-		if(operationSize == 0) {				res = mAddressRegister[sourceRegister] & 0xff;
-		} else if(operationSize == 1) {	res = mAddressRegister[sourceRegister] & 0xffff;
-		} else if(operationSize == 2) {	res = mAddressRegister[sourceRegister];
+	} else if(mode == 0x1) {																// An
+		if(operationSize == 0) {				res = mAddressRegister[reg] & 0xff;
+		} else if(operationSize == 1) {	res = mAddressRegister[reg] & 0xffff;
+		} else if(operationSize == 2) {	res = mAddressRegister[reg];
 		}
-	} else if(sourceMode == 0x2) {																// (an)
-		if(operationSize = 0) {					res = readByte(mAddressRegister[sourceRegister]);
-		} else if(operationSize == 1) {	res = readWord(mAddressRegister[sourceRegister]);
-		} else if(operationSize == 2) {	res = readLong(mAddressRegister[sourceRegister]);
+	} else if(mode == 0x2) {																// (an)
+		if(operationSize = 0) {					res = readByte(mAddressRegister[reg]);
+		} else if(operationSize == 1) {	res = readWord(mAddressRegister[reg]);
+		} else if(operationSize == 2) {	res = readLong(mAddressRegister[reg]);
 		}
-	} else if(sourceMode == 0x3) {																// (an)+
+	} else if(mode == 0x3) {																// (an)+
 		if(operationSize == 0) { // byte
-			res = readByte(mAddressRegister[sourceRegister]);
-			mAddressRegister[sourceRegister] += 1;
+			res = readByte(mAddressRegister[reg]);
+			mAddressRegister[reg] += 1;
 		} else if(operationSize == 1) { // word
-			res = readWord(mAddressRegister[sourceRegister]);
-			mAddressRegister[sourceRegister] += 2;
+			res = readWord(mAddressRegister[reg]);
+			mAddressRegister[reg] += 2;
 		} else if(operationSize == 2) { // long
-			res = readLong(mAddressRegister[sourceRegister]);
-			mAddressRegister[sourceRegister] += 4;
+			res = readLong(mAddressRegister[reg]);
+			mAddressRegister[reg] += 4;
 		}
 
-	} else if(sourceMode == 0x4) {																// -(an)
+	} else if(mode == 0x4) {																// -(an)
 		if(operationSize == 0) { // byte
-			mAddressRegister[sourceRegister] -= 1;
-			res = readByte(mAddressRegister[sourceRegister]);
+			mAddressRegister[reg] -= 1;
+			res = readByte(mAddressRegister[reg]);
 		} else if(operationSize == 1) { // word
-			mAddressRegister[sourceRegister] -= 2;
-			res = readWord(mAddressRegister[sourceRegister]);
+			mAddressRegister[reg] -= 2;
+			res = readWord(mAddressRegister[reg]);
 		} else if(operationSize == 2) { // long
-			mAddressRegister[sourceRegister] -= 4;
-			res = readLong(mAddressRegister[sourceRegister]);
+			mAddressRegister[reg] -= 4;
+			res = readLong(mAddressRegister[reg]);
 		}
 
-	} else if(sourceMode == 0x5) {																// (d16,An)
+	} else if(mode == 0x5) {																// (d16,An)
 		uint32_t displacement = readWord(mPC);
 		mPC += 2;
-		if(operationSize == 0) {				res = readByte(mAddressRegister[sourceRegister] + displacement);
-		} else if(operationSize == 1) {	res = readWord(mAddressRegister[sourceRegister] + displacement);
-		} else if(operationSize == 2) {	res = readLong(mAddressRegister[sourceRegister] + displacement);
+		if(operationSize == 0) {				res = readByte(mAddressRegister[reg] + displacement);
+		} else if(operationSize == 1) {	res = readWord(mAddressRegister[reg] + displacement);
+		} else if(operationSize == 2) {	res = readLong(mAddressRegister[reg] + displacement);
 		}
 
-	} else if(sourceMode == 0x6) {																// (d8,An,Xn)
+	} else if(mode == 0x6) {																// (d8,An,Xn)
 
-	} else if((sourceMode == 0x7) && (sourceRegister == 0x0)) {		// (xxx).W
+	} else if((mode == 0x7) && (reg == 0x0)) {		// (xxx).W
 		res = readWord(mPC);
 		mPC += 2;
 		if(operationSize == 0) {				res = readByte(res);
@@ -744,7 +814,7 @@ uint32_t M68K::readData(uint8_t sourceMode, uint8_t sourceRegister, uint8_t oper
 		} else if(operationSize == 2) {	res = readLong(res);
 		}
 
-	} else if((sourceMode == 0x7) && (sourceRegister == 0x1)) {		// (xxx).L
+	} else if((mode == 0x7) && (reg == 0x1)) {		// (xxx).L
 		res = readLong(mPC);
 		mPC += 4;
 		if(operationSize == 0) {				res = readByte(res);
@@ -752,7 +822,7 @@ uint32_t M68K::readData(uint8_t sourceMode, uint8_t sourceRegister, uint8_t oper
 		} else if(operationSize == 2) {	res = readLong(res);
 		}
 
-	} else if((sourceMode == 0x7) && (sourceRegister == 0x2)) {		// (d16, PC)
+	} else if((mode == 0x7) && (reg == 0x2)) {		// (d16, PC)
 		res = readWord(mPC);
 		res += mPC;
 		mPC += 2;
@@ -761,13 +831,13 @@ uint32_t M68K::readData(uint8_t sourceMode, uint8_t sourceRegister, uint8_t oper
 		//} else if(operationSize == 2) { // long
 		//}
 
-	} else if((sourceMode == 0x7) && (sourceRegister == 0x3)) {		// (d8, PC, Xn)
+	} else if((mode == 0x7) && (reg == 0x3)) {		// (d8, PC, Xn)
 		if(operationSize == 0) { // byte
 		} else if(operationSize == 1) { // word
 		} else if(operationSize == 2) { // long
 		}
 
-	} else if((sourceMode == 0x7) && (sourceRegister == 0x4)) {		// #imm
+	} else if((mode == 0x7) && (reg == 0x4)) {		// #imm
 		if(operationSize == 0) { // byte
 			res = readWord(mPC) & 0xff;
 			mPC += 2;
