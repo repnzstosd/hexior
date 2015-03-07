@@ -1,4 +1,5 @@
-﻿ORI to CCR
+﻿-- Most of these we implement when needed..
+ORI to CCR
 ORI to SR
 ANDI to CCR
 ANDI to SR
@@ -16,6 +17,7 @@ TRAPV
 RTR
 TRAP
 
+-- These are the ones to be implemented 41 instructions...
 BCHG / BCHG IMM
 ~(<Bitnumber> of Destination) -> Z
 Z -> Bit of Destination
@@ -61,6 +63,7 @@ LSd / LSd <ea>
 ROXd / ROXd <ea>
 ROd / ROd <ea>
 
+-- Below shouold be more or less done.. 29.
 MOVE
 MOVEA
 SWAP
