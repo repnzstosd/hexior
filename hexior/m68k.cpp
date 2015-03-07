@@ -109,8 +109,11 @@ int M68K::step() {
 	mPC += 2;
 
 	switch(instruction >> 12) {
+
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x0 ]}====- -===- -==- -==- -=- --- -- -  -   - */
+
 		case 0x0:
-			// ORI, BTST, MOVEP, BCHG, BCLR, BSET, ANDI, SUBI, ADDI, EORI, CMPI
+			// ORI, ANDI, SUBI, ADDI, EORI, BTST, MOVEP, BCHG, BCLR, BSET, CMPI
 			switch (instruction & 0x0f00) {
 
 				case 0x0000:	// ORI
@@ -179,6 +182,8 @@ int M68K::step() {
 			}
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x1 0x2 0x3 (Move) ]}====- -===- -==- -==- -=- --- -- -  -   - */
+
 		case 0x1:		// MOVE .B
 			// No BREAK
 		case 0x2:		// MOVE .L
@@ -205,6 +210,7 @@ int M68K::step() {
 			}
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x4 ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0x4:
 			switch (instruction & 0xf1c0) {	// LEA, CHK
 				case 0x41c0: {	// LEA	0100xxx111xxxxxx
@@ -221,6 +227,10 @@ int M68K::step() {
 					break;
 			}
 
+	//
+	// TODO: Check that these functions ever get called!!
+	// BUG?
+	//
 			// NEGX, MOVE from SR, CLR, NEG, MOVE to CCR, NOT, MOVE to SR, NBCD, PEA, SWAP, MOVEM, EXT, TST, TAS, TRAP, LINK, UNLK, MOVE USP, JSR, JMP
 				case 0x4e50: {	// link		-==- SP - 4 -> SP; An -> (SP); SP -> An; SP + dn -> SP -==-
 						uint8_t	reg = instruction & 0x7;
@@ -300,6 +310,8 @@ int M68K::step() {
 			}
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x5 ]}====- -===- -==- -==- -=- --- -- -  -   - */
+
 		case 0x5: {
 				uint32_t		data		= (instruction >> 9) & 0x7;
 				uint32_t		cond		= (instruction >> 8) & 0xf;
@@ -337,6 +349,8 @@ int M68K::step() {
 				}
 			}
 			break;
+
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x6 ]}====- -===- -==- -==- -=- --- -- -  -   - */
 
 		case 0x6:	{	// Bcc, BRA, BSR
 			int32_t displacement = 0;
@@ -378,6 +392,7 @@ int M68K::step() {
 			}
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x7 ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0x7:	{		// MOVEQ
 				uint8_t reg		= uint8_t((instruction >> 9) & 7);
 				uint32_t data = instruction & 0xff;
@@ -388,16 +403,20 @@ int M68K::step() {
 			}
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x8 ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0x8:		// OR, DIVU, SBCD, DIVS
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0x9 ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0x9:		// SUB, SUBA, SUBX
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xA Illegal ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0xa:		// nope...
 				// ILLEGAL
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xB ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0xb:		// CMP, CMPA, EOR, CMPM
 			switch(instruction & 0xb1c8) {
 				case 0xb0c0:	// CMPA
@@ -434,10 +453,13 @@ int M68K::step() {
 
 					break;
 			}
+
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xC ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0xc:
 			// AND, MULU, EXG, ABCD, MULS
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xD ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0xd:
 			// ADD, ADDA, ADDX
 
@@ -465,6 +487,7 @@ int M68K::step() {
 			}
 			break;
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xE ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0xe:
 			switch (instruction & 0xeec0) {
 				case 0xe0c0:	// ASd	- Memory
@@ -479,8 +502,47 @@ int M68K::step() {
 
 			switch (instruction & 0xe018) {
 				case 0xe000:	// ASd
+//
+// Destination >> Count -> Destination
+//
+// ASd Dx, Dy
+// ASd #data, Dy
+// ASd <ea>
+// Where d is direction, L or R
+//
+// 1. Immediate - The shift count is specified in the instruction (shift range 1-8);
+// 2. Register - The shift count is the value in the data register specified in instruction modulo 64.
+//
+// The size of the operation can be specified as byte, word or long. An operand in memory can be shifted one bit only, and the operand size is restricted to word.
+//
+// For ASL:
+//
+//  Carry  <---*---[OPERAND] <---- 0
+//             |
+//  eXtended <-'
+//
+// For ASR:
+//
+// .--> [MSB|OPERAND] ---*---> Carry
+// |      ^              |
+// '------'              '---> eXtended
+//
 					break;
-				case 0xe008:	// LSd
+
+				case 0xe008: {	// LSd
+
+						uint8_t destination	= (instruction) & 0x7;
+						uint8_t	mode				= (instruction >> 5) & 0x1;	// I/R
+						uint8_t size				= (instruction >> 6) & 0x3;
+						uint8_t	direction		= (instruction >> 8) & 0x1;
+						uint8_t	source			= (instruction >> 9) & 0x7;	// Count OR Register
+
+// TODO: Implement
+						if(direction == 0) {	// Right
+						} else {							// Left
+						}
+
+					}
 					break;
 				case 0xe010:	// ROXd
 					break;
@@ -488,44 +550,82 @@ int M68K::step() {
 					break;
 			}
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xF LINE-F Emulator Trap (FPU) ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0xf:
 			// Fpu...
 
 		return cycles;
 	}
 
+/* -   -  - -- --- -=- -==- -==- -===- -===={[ Full word functions ]}====- -===- -==- -==- -=- --- -- -  -   - */
+
 	switch(instruction) {
 		case 0x003c:	// ORI to CCR		(Byte, Immediate)
+
+// Source | CCR -> CCR
+//
+// ori #data, CCR
+//
+// instruction format
+// 0000000000111100
+// 00000000dddddddd
+
 			break;
 
 		case 0x007c:	// ORI to SR		(Word, Immediate)
+
+// if SupervisorState
+//	source | SR -> SR
+// else TRAP
+//
+// ori #data, SR
+//
+// instruction format
+// 0000000001111100
+// dddddddddddddddd
+
 			break;
 
 		case 0x023c:	// ANDI to CCR	(Byte, Immediate)
 			break;
 
 		case 0x027c:	// ANDI to SR		(Word, Immediate)
+
+// if SupervisorState
+//	source & SR -> SR
+// else TRAP
+//
+// andi #data, SR
+//
+// instruction format
+// 0000001001111100
+// dddddddddddddddd
+
 			break;
 
 		case 0x0a2c:	// EORI to CCR	(Byte, Immediate)
 			break;
 
 		case 0x0a7c:	// EORI to SR		(Word, Immediate)
+
+// if SupervisorState
+//	source ^ SR -> SR
+// else TRAP
+//
+// eori #data, SR
+//
+// instruction format
+// 0000101001111100
+// dddddddddddddddd
+
 			break;
 
-		case 0x4afb:	// illegal
-/*
+		case 0x4afb:	// illegal			-==- SSP -2 -> SSP; Vector Offset -> (SSP); SSP -4 -> SSP; PC -> (SSP); SSP -2 -> SSP; SR -> (SSP); ILLEGAL instruction vector Address -> PC
 
-SSP -= 2				-> SSP
-Vector Offset		-> (SSP)
-SSP -= 4				-> SSP
-PC							-> (SSP)
-SSP -= 2				-> SSP
-SR							-> (SSP)
-ILLEGAL instruction vector Address -> PC
-
-*/
-
+// SSP-2 -> SSP; VectorOffset -> (SSP)	// NOT DONE on 68k, only 68020+
+// SSP-4 -> SSP; PC -> (ssp)
+// SSP-2 -> SSP; SR -> (SSP)
+// Illegal Instruction Vector Address -> PC
 
 			break;
 
@@ -538,9 +638,27 @@ ILLEGAL instruction vector Address -> PC
 			break;
 
 		case 0x4e72:	// stop					(Word, Immediate)?
+// if SupervisorState
+//   Immediate Data -> SR; STOP
+// else TRAP
+//
+// Stop #data
+//
+
 			break;
 
 		case 0x4e73:	// rte
+// if SupervisorState
+//   (SP) -> SR;
+//   SP+2 -> SP;
+//   (SP) -> PC;
+//   SP+4 -> SP;
+//   Restore State and Deallocate Stack According to (SP)
+// else TRAP
+//
+//
+
+
 			break;
 
 		case 0x4e75:	// rts
@@ -597,17 +715,17 @@ bool M68K::checkCondition(uint8_t conditionCode) {
 		case 0: return	true;
 		case 1: return	false;
 		case 2: return	!mSR.carry & !mSR.zero;
-		case 3: return	mSR.carry |  mSR.zero;
+		case 3: return	 mSR.carry |  mSR.zero;
 		case 4: return	!mSR.carry;
-		case 5: return	mSR.carry;
+		case 5: return	 mSR.carry;
 		case 6: return	!mSR.zero;
-		case 7: return	mSR.zero;
+		case 7: return	 mSR.zero;
 		case 8: return	!mSR.overflow;
-		case 9: return	mSR.overflow;
+		case 9: return	 mSR.overflow;
 		case 10: return	!mSR.negative;
-		case 11: return	mSR.negative;
+		case 11: return	 mSR.negative;
 		case 12: return	!(mSR.negative ^ mSR.overflow);
-		case 13: return	mSR.negative ^ mSR.overflow;
+		case 13: return	  mSR.negative ^ mSR.overflow;
 		case 14: return	(mSR.negative &  mSR.overflow & !mSR.zero) | (!mSR.negative & !mSR.overflow & !mSR.zero);
 		case 15: return	mSR.zero | (mSR.negative & !mSR.overflow) | (!mSR.negative & mSR.overflow);
 	}
