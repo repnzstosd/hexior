@@ -620,7 +620,7 @@ int M68K::step() {
 
 			break;
 
-		case 0x4afb:	// illegal			-==- SSP -2 -> SSP; Vector Offset -> (SSP); SSP -4 -> SSP; PC -> (SSP); SSP -2 -> SSP; SR -> (SSP); ILLEGAL instruction vector Address -> PC
+		case 0x4afb:	// illegal
 
 // SSP-2 -> SSP; VectorOffset -> (SSP)	// NOT DONE on 68k, only 68020+
 // SSP-4 -> SSP; PC -> (ssp)
@@ -673,7 +673,6 @@ int M68K::step() {
 		case 0x4e77:	// rtr
 			break;
 	}
-
 
 	return 0;	// Number of cycles executed... <47
 }
@@ -778,89 +777,94 @@ void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source
 // for indirect with post/pre-increment/decrement we need to check A7 for special case when reading one byte,
 // a7 can never be odd, so we need to add 2, all other cases 1 *for byte-read*
 //
-uint32_t M68K::writeData(uint8_t destMode, uint8_t destRegister, uint8_t operationSize, uint32_t res) {
-	if(destMode == 0x0) {					// Dn
-		if(operationSize == 0) {				mDataRegister[destRegister] = mDataRegister[destRegister] & 0xffffff00 | res & 0xff;
-		} else if(operationSize == 1) {	mDataRegister[destRegister] = mDataRegister[destRegister] & 0xffff0000 | res & 0xffff;
-		} else if(operationSize == 2) {	mDataRegister[destRegister] = res;
-		}
-
-	} else if(destMode == 0x1) {	// An
-		if(operationSize == 0) {				mAddressRegister[destRegister] = mAddressRegister[destRegister] & 0xffffff00 | res & 0xff;
-		} else if(operationSize == 1) {	mAddressRegister[destRegister] = mAddressRegister[destRegister] & 0xffff0000 | res & 0xffff;
-		} else if(operationSize == 2) {	mAddressRegister[destRegister] = res;
-		}
-
-	} else if(destMode == 0x2) {	// (an)
-		if(operationSize == 0) {				writeByte(mAddressRegister[destRegister], res);
-		} else if(operationSize == 1) {	writeWord(mAddressRegister[destRegister], res);
-		} else if(operationSize == 2) {	writeLong(mAddressRegister[destRegister], res);
-		}
-
-	} else if(destMode == 0x3) {	// (an)+
-		if(operationSize == 0) { // byte
-			writeByte(mAddressRegister[destRegister], res);
-			mAddressRegister[destRegister] += 1;
-		} else if(operationSize == 1) { // word
-			writeWord(mAddressRegister[destRegister], res);
-			mAddressRegister[destRegister] += 2;
-		} else if(operationSize == 2) { // long
-			writeLong(mAddressRegister[destRegister], res);
-			mAddressRegister[destRegister] += 4;
-		}
-
-	} else if(destMode == 0x4) {	// -(an)
-		if(operationSize == 0) { // byte
-			mAddressRegister[destRegister] -= 1;
-			writeByte(mAddressRegister[destRegister], res);
-		} else if(operationSize == 1) { // word
-			mAddressRegister[destRegister] -= 2;
-			writeWord(mAddressRegister[destRegister], res);
-		} else if(operationSize == 2) { // long
-			mAddressRegister[destRegister] -= 4;
-			writeLong(mAddressRegister[destRegister], res);
-		}
-
-	} else if(destMode == 0x5) {	// (d16,An)
-		uint32_t displacement = readWord(mPC);
-		mPC += 2;
-		if(operationSize == 0) {				writeByte(mAddressRegister[destRegister] + displacement, res);
-		} else if(operationSize == 1) {	writeWord(mAddressRegister[destRegister] + displacement, res);
-		} else if(operationSize == 2) {	writeLong(mAddressRegister[destRegister] + displacement, res);
-		}
-
-	} else if(destMode == 0x6) {	// (d8,An,Xn)
-		if(operationSize == 0) { // byte
-		} else if(operationSize == 1) { // word
-		} else if(operationSize == 2) { // long
-		}
-
-	} else if((destMode == 0x7) && (destRegister == 0x0)) {	// (xxx).W
-		uint16_t absoluteShort = readWord(mPC);
-		if(operationSize == 0) {				writeByte(absoluteShort, res);
-		} else if(operationSize == 1) {	writeWord(absoluteShort, res);
-		} else if(operationSize == 2) {	writeLong(absoluteShort, res);
-		}
-
-	} else if((destMode == 0x7) && (destRegister == 0x1)) {	// (xxx).L
-		uint32_t absoluteShort = readWord(mPC);
-		if(operationSize == 0) {				writeByte(absoluteShort, res);
-		} else if(operationSize == 1) {	writeWord(absoluteShort, res);
-		} else if(operationSize == 2) {	writeLong(absoluteShort, res);
-		}
-
-	} else if((destMode == 0x7) && (destRegister == 0x2)) {	// (d16, PC)
-		if(operationSize == 0) { // byte
-		} else if(operationSize == 1) { // word
-		} else if(operationSize == 2) { // long
-		}
-
-	} else if((destMode == 0x7) && (destRegister == 0x3)) {	// (d8, PC, Xn)
-		if(operationSize == 0) { // byte
-		} else if(operationSize == 1) { // word
-		} else if(operationSize == 2) { // long
-		}
-
+uint32_t M68K::writeData(uint8_t mode, uint8_t reg, uint8_t size, uint32_t res) {
+	switch(mode) {
+		case 0:									// Dn
+			if(size == 0) {					mDataRegister[reg] = mDataRegister[reg] & 0xffffff00 | res & 0xff;
+			} else if(size == 1) {	mDataRegister[reg] = mDataRegister[reg] & 0xffff0000 | res & 0xffff;
+			} else if(size == 2) {	mDataRegister[reg] = res;
+			}
+			break;
+		case 1:									// An
+			if(size == 0) {					mAddressRegister[reg] = mAddressRegister[reg] & 0xffffff00 | res & 0xff;
+			} else if(size == 1) {	mAddressRegister[reg] = mAddressRegister[reg] & 0xffff0000 | res & 0xffff;
+			} else if(size == 2) {	mAddressRegister[reg] = res;
+			}
+			break;
+		case 2:									// (An)
+			if(size == 0) {					writeByte(mAddressRegister[reg], res);
+			} else if(size == 1) {	writeWord(mAddressRegister[reg], res);
+			} else if(size == 2) {	writeLong(mAddressRegister[reg], res);
+			}
+			break;
+		case 3:									// (An)+
+			if(size == 0) {					// byte
+				writeByte(mAddressRegister[reg], res);
+				mAddressRegister[reg] += 1;
+			} else if(size == 1) {	// word
+				writeWord(mAddressRegister[reg], res);
+				mAddressRegister[reg] += 2;
+			} else if(size == 2) {	// long
+				writeLong(mAddressRegister[reg], res);
+				mAddressRegister[reg] += 4;
+			}
+			break;
+		case 4:									// -(An)
+			if(size == 0) {					// byte
+				mAddressRegister[reg] -= 1;
+				writeByte(mAddressRegister[reg], res);
+			} else if(size == 1) {	// word
+				mAddressRegister[reg] -= 2;
+				writeWord(mAddressRegister[reg], res);
+			} else if(size == 2) {	// long
+				mAddressRegister[reg] -= 4;
+				writeLong(mAddressRegister[reg], res);
+			}
+			break;
+		case 5:									// (d16, An)
+			uint32_t displacement = readWord(mPC);
+			mPC += 2;
+			if(size == 0) {					writeByte(mAddressRegister[reg] + displacement, res);
+			} else if(size == 1) {	writeWord(mAddressRegister[reg] + displacement, res);
+			} else if(size == 2) {	writeLong(mAddressRegister[reg] + displacement, res);
+			}
+			break;
+		case 6:									// (d8, An, Xn)
+			if(size == 0) {					// byte
+			} else if(size == 1) {	// word
+			} else if(size == 2) {	// long
+			}
+			break;
+		case 7:
+			switch(reg) {
+				case 0:							// (xxx).W
+					uint16_t absoluteShort = readWord(mPC);
+					if(size == 0) {					writeByte(absoluteShort, res);
+					} else if(size == 1) {	writeWord(absoluteShort, res);
+					} else if(size == 2) {	writeLong(absoluteShort, res);
+					}
+					break;
+				case 1:							// (xxx).L
+					uint32_t absoluteShort = readWord(mPC);
+					if(size == 0) {					writeByte(absoluteShort, res);
+					} else if(size == 1) {	writeWord(absoluteShort, res);
+					} else if(size == 2) {	writeLong(absoluteShort, res);
+					}
+					break;
+				case 2:							// (d16, PC)
+					if(size == 0) {					// byte
+					} else if(size == 1) {	// word
+					} else if(size == 2) {	// long
+					}
+					break;
+				case 3:							// (d8, PC, Xn)
+					if(size == 0) {					// byte
+					} else if(size == 1) {	// word
+					} else if(size == 2) {	// long
+					}
+					break;
+			}
+			break;
 	}
 	return 0;
 }
@@ -869,100 +873,109 @@ uint32_t M68K::writeData(uint8_t destMode, uint8_t destRegister, uint8_t operati
 // for indirect with post/pre-increment/decrement we need to check A7 for special case when reading one byte,
 // a7 can never be odd, so we need to add 2, all other cases 1 *for byte-read*
 //
-uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t operationSize) {
+uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t size) {
 	uint32_t res = 0;
-	if(mode == 0x0) {																				// Dn
-		if(operationSize == 0) {				res = mDataRegister[reg] & 0xff;
-		} else if(operationSize == 1) {	res = mDataRegister[reg] & 0xffff;
-		} else if(operationSize == 2) {	res = mDataRegister[reg];
-		}
-	} else if(mode == 0x1) {																// An
-		if(operationSize == 0) {				res = mAddressRegister[reg] & 0xff;
-		} else if(operationSize == 1) {	res = mAddressRegister[reg] & 0xffff;
-		} else if(operationSize == 2) {	res = mAddressRegister[reg];
-		}
-	} else if(mode == 0x2) {																// (an)
-		if(operationSize = 0) {					res = readByte(mAddressRegister[reg]);
-		} else if(operationSize == 1) {	res = readWord(mAddressRegister[reg]);
-		} else if(operationSize == 2) {	res = readLong(mAddressRegister[reg]);
-		}
-	} else if(mode == 0x3) {																// (an)+
-		if(operationSize == 0) { // byte
-			res = readByte(mAddressRegister[reg]);
-			mAddressRegister[reg] += 1;
-		} else if(operationSize == 1) { // word
-			res = readWord(mAddressRegister[reg]);
-			mAddressRegister[reg] += 2;
-		} else if(operationSize == 2) { // long
-			res = readLong(mAddressRegister[reg]);
-			mAddressRegister[reg] += 4;
-		}
-
-	} else if(mode == 0x4) {																// -(an)
-		if(operationSize == 0) { // byte
-			mAddressRegister[reg] -= 1;
-			res = readByte(mAddressRegister[reg]);
-		} else if(operationSize == 1) { // word
-			mAddressRegister[reg] -= 2;
-			res = readWord(mAddressRegister[reg]);
-		} else if(operationSize == 2) { // long
-			mAddressRegister[reg] -= 4;
-			res = readLong(mAddressRegister[reg]);
-		}
-
-	} else if(mode == 0x5) {																// (d16,An)
-		uint32_t displacement = readWord(mPC);
-		mPC += 2;
-		if(operationSize == 0) {				res = readByte(mAddressRegister[reg] + displacement);
-		} else if(operationSize == 1) {	res = readWord(mAddressRegister[reg] + displacement);
-		} else if(operationSize == 2) {	res = readLong(mAddressRegister[reg] + displacement);
-		}
-
-	} else if(mode == 0x6) {																// (d8,An,Xn)
-
-	} else if((mode == 0x7) && (reg == 0x0)) {		// (xxx).W
-		res = readWord(mPC);
-		mPC += 2;
-		if(operationSize == 0) {				res = readByte(res);
-		} else if(operationSize == 1) {	res = readWord(res);
-		} else if(operationSize == 2) {	res = readLong(res);
-		}
-
-	} else if((mode == 0x7) && (reg == 0x1)) {		// (xxx).L
-		res = readLong(mPC);
-		mPC += 4;
-		if(operationSize == 0) {				res = readByte(res);
-		} else if(operationSize == 1) {	res = readWord(res);
-		} else if(operationSize == 2) {	res = readLong(res);
-		}
-
-	} else if((mode == 0x7) && (reg == 0x2)) {		// (d16, PC)
-		res = readWord(mPC);
-		res += mPC;
-		mPC += 2;
-		//if(operationSize == 0) { // byte
-		//} else if(operationSize == 1) { // word
-		//} else if(operationSize == 2) { // long
-		//}
-
-	} else if((mode == 0x7) && (reg == 0x3)) {		// (d8, PC, Xn)
-		if(operationSize == 0) { // byte
-		} else if(operationSize == 1) { // word
-		} else if(operationSize == 2) { // long
-		}
-
-	} else if((mode == 0x7) && (reg == 0x4)) {		// #imm
-		if(operationSize == 0) { // byte
-			res = readWord(mPC) & 0xff;
+	switch(mode) {
+		case 0:				// Dn
+			if(size == 0) {					res = mDataRegister[reg] & 0xff;
+			} else if(size == 1) {	res = mDataRegister[reg] & 0xffff;
+			} else if(size == 2) {	res = mDataRegister[reg];
+			}
+			break;
+		case 1:				// An
+			if(size == 0) {					res = mAddressRegister[reg] & 0xff;
+			} else if(size == 1) {	res = mAddressRegister[reg] & 0xffff;
+			} else if(size == 2) {	res = mAddressRegister[reg];
+			}
+			break;
+		case 2:				// (An)
+			if(size = 0) {					res = readByte(mAddressRegister[reg]);
+			} else if(size == 1) {	res = readWord(mAddressRegister[reg]);
+			} else if(size == 2) {	res = readLong(mAddressRegister[reg]);
+			}
+			break;
+		case 3:				// (An)+
+			if(size == 0) { // byte
+				res = readByte(mAddressRegister[reg]);
+				mAddressRegister[reg] += 1;
+			} else if(size == 1) { // word
+				res = readWord(mAddressRegister[reg]);
+				mAddressRegister[reg] += 2;
+			} else if(size == 2) { // long
+				res = readLong(mAddressRegister[reg]);
+				mAddressRegister[reg] += 4;
+			}
+			break;
+		case 4:				// -(An)
+			if(size == 0) { // byte
+				mAddressRegister[reg] -= 1;
+				res = readByte(mAddressRegister[reg]);
+			} else if(size == 1) { // word
+				mAddressRegister[reg] -= 2;
+				res = readWord(mAddressRegister[reg]);
+			} else if(size == 2) { // long
+				mAddressRegister[reg] -= 4;
+				res = readLong(mAddressRegister[reg]);
+			}
+			break;
+		case 5:				// (d16, An)
+			uint32_t displacement = readWord(mPC);
 			mPC += 2;
-		} else if(operationSize == 1) { // word
-			res = readWord(mPC);
-			mPC += 2;
-		} else if(operationSize == 2) { // long
-			res = readLong(mPC);
-			mPC += 4;
-		}
+			if(size == 0) {					res = readByte(mAddressRegister[reg] + displacement);
+			} else if(size == 1) {	res = readWord(mAddressRegister[reg] + displacement);
+			} else if(size == 2) {	res = readLong(mAddressRegister[reg] + displacement);
+			}
+			break;
+		case 6:				// (d8,An,Xn)
+			break;
 
+		case 7:
+			switch(reg) {
+				case 0:		// (xxx).W
+					res = readWord(mPC);
+					mPC += 2;
+					if(size == 0) {					res = readByte(res);
+					} else if(size == 1) {	res = readWord(res);
+					} else if(size == 2) {	res = readLong(res);
+					}
+					break;
+				case 1:		// (xxx).L
+					res = readLong(mPC);
+					mPC += 4;
+					if(size == 0) {					res = readByte(res);
+					} else if(size == 1) {	res = readWord(res);
+					} else if(size == 2) {	res = readLong(res);
+					}
+					break;
+				case 2:		// (d16, PC)
+					res = readWord(mPC);
+					res += mPC;
+					mPC += 2;
+					//if(operationSize == 0) { // byte
+					//} else if(operationSize == 1) { // word
+					//} else if(operationSize == 2) { // long
+					//}
+					break;
+				case 3:		// (d8, PC, Xn)
+					if(size == 0) { // byte
+					} else if(size == 1) { // word
+					} else if(size == 2) { // long
+					}
+					break;
+				case 4:		// #imm
+					if(size == 0) { // byte
+						res = readWord(mPC) & 0xff;
+						mPC += 2;
+					} else if(size == 1) { // word
+						res = readWord(mPC);
+						mPC += 2;
+					} else if(size == 2) { // long
+						res = readLong(mPC);
+						mPC += 4;
+					}
+					break;
+			}
+			break;
 	}
 	return res;
 }

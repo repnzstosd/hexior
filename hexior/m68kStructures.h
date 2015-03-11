@@ -150,7 +150,7 @@ struct RegisterState {
 		};
 	};
 	inline operator uint16_t() const { return SR; }
-	inline uint16_t operator  = (uint16_t data) { return SR = data; }
+	inline uint16_t operator  = (uint16_t data) { return SR  = data; }
 	inline uint16_t operator |= (uint16_t data) { return SR |= data; }
 	inline uint16_t operator ^= (uint16_t data) { return SR ^= data; }
 	inline uint16_t operator &= (uint16_t data) { return SR &= data; }
@@ -163,7 +163,7 @@ struct Register32 {
 		struct { uint16_t w, noUseW; };
 		struct { uint8_t l, noUseH, noUseLb, noUseHb; };
 	};
-	inline uint32_t operator  = (uint32_t data) { return d = data; }
+	inline uint32_t operator  = (uint32_t data) { return d  = data; }
 	inline uint32_t operator -= (uint32_t data) { return d -= data; }
 	inline uint32_t operator += (uint32_t data) { return d += data; }
 	inline uint32_t operator |= (uint32_t data) { return d |= data; }
