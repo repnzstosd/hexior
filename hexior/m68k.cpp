@@ -828,6 +828,46 @@ void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source
 	}
 }
 
+
+
+//
+// TODO: These will become the new read-/writeData() functions..
+//
+//
+uint32_t writeByte(uint32_t a, uint32_t b) {}
+uint32_t writeWord(uint32_t a, uint32_t b) {}
+uint32_t writeLong(uint32_t a, uint32_t b) {}
+
+uint32_t writeEA(uint8_t size, uint32_t value) {
+	uint32_t eaRegister;	// should be a pointer to the m(Data/Address)register[x] we wish to write.
+	uint32_t eaAddress;		// should be the calculated address pointed to by ea
+
+	if(eaRegister) {
+		switch(size) {
+			case Size::BYTE: eaRegister = value & 0xff;		return;
+			case Size::WORD: eaRegister = value & 0xffff;	return;
+			case Size::LONG: eaRegister = value;					return;
+			default: return;
+		}
+	}
+
+	switch(size) {
+		case Size::BYTE:	writeByte(eaAddress, value & 0xff);		return;
+		case Size::WORD:	writeWord(eaAddress, value & 0xffff);	return;
+		case Size::LONG:	writeLong(eaAddress, value);					return;
+	}
+}
+
+uint32_t loadEA(uint8_t size, uint8_t ea) {
+}
+
+
+
+//
+//
+//  REWRITE readData(...) and writeData(...); 
+//
+//
 // for indirect with post/pre-increment/decrement we need to check A7 for special case
 // when reading one byte, a7 can never be odd, so we need to add 2, all other cases 1 *for byte-read*
 //
@@ -934,19 +974,13 @@ uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t size) {
 	uint32_t res = 0;
 	switch(mode) {
 		case 0:				// Dn
-			if(size == Size::BYTE) {				res = mDataRegister[reg] & 0xff;
-			} else if(size == Size::WORD) {	res = mDataRegister[reg] & 0xffff;
-			} else if(size == Size::LONG) {	res = mDataRegister[reg];
-			}
+			res = maskValue(mDataRegister[reg], size);
 			break;
 		case 1:				// An
-			if(size == Size::BYTE) {				res = mAddressRegister[reg] & 0xff;
-			} else if(size == Size::WORD) {	res = mAddressRegister[reg] & 0xffff;
-			} else if(size == Size::LONG) {	res = mAddressRegister[reg];
-			}
+			res = maskValue(mAddressRegister[reg], size);
 			break;
 		case 2:				// (An)
-			if(size = Size::BYTE) {					res = readByte(mAddressRegister[reg]);
+			if(size == Size::BYTE) {					res = readByte(mAddressRegister[reg]);
 			} else if(size == Size::WORD) {	res = readWord(mAddressRegister[reg]);
 			} else if(size == Size::LONG) {	res = readLong(mAddressRegister[reg]);
 			}
@@ -984,7 +1018,30 @@ uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t size) {
 				}
 			}
 			break;
-		case 6:				// (d8,An,Xn)
+		case 6:				// (d8,An,Xn) -- Address Register Indirect with Index (Base Displacement) Mode
+			uint16_t ext = readWord(mPC);
+			mPC += 2;
+
+			uint8_t	extReg					= (ext >> 12) & 0x7;
+			bool		extSize					= (ext >> 11) & 0x1;
+			uint8_t extScale				= (ext >> 9) & 0x3;
+			int8_t	extDisplacement	= (ext) & 0xff;
+
+// 3D 73 40 02 00 12		move.w 2(a3, d4.w), $12(a6)
+//
+// instruction: 0010 1101 0111 0011 = 0x3d73
+//   extension: 0100 0000 0000 0010 = 0x4002
+//          d8: 0000 0000 0001 0010	= 0x12
+//
+// ext: ARRRBSS0DDDDDDDD
+// A = Data/Address (0=Dn, 1=An)
+// R = RegNum
+// B = Word/Long
+// SS = Scale; 00=1; 01=2; 10=4; 11=8
+// D = 8bit-displacement (else we read another word)..
+
+
+
 			break;
 
 		case 7:
@@ -1005,12 +1062,23 @@ uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t size) {
 					} else if(size == Size::LONG) {	res = readLong(res);
 					}
 					break;
-				case 2:		// (d16, PC)
-					res = readWord(mPC);
+				case 2:		// (d16, PC)		14(PC)
+					res = int16_t(readWord(mPC));
 					res += mPC;
 					mPC += 2;
 					break;
-				case 3:		// (d8, PC, Xn)
+				case 3:		// (d8, PC, Xn)		14(PC, Xn)
+//
+// move.L 44(PC, Xn * scale)
+//
+// extension word format:
+// D/A = 15
+// Register = 14-12
+// W/L = 11
+// SCALE = 10-9
+// 0 = 8
+// DISPLACEMENT = 7-0
+//
 					if(size == Size::WORD) {
 					} else if(size == Size::WORD) {
 					} else if(size == Size::LONG) {
