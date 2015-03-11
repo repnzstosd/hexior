@@ -833,32 +833,140 @@ void M68K::setFlags(uint8_t type, uint8_t size, uint64_t result, uint32_t source
 //
 // TODO: These will become the new read-/writeData() functions..
 //
+// We will use two variables, saved privately in the class, to make the writeEA as short as possible to minimize bugs.
+// We get away with this as the loadEA and writeEA is always called inside one instruction, so no possibility of fuckup(tm)
 //
-uint32_t writeByte(uint32_t a, uint32_t b) {}
-uint32_t writeWord(uint32_t a, uint32_t b) {}
-uint32_t writeLong(uint32_t a, uint32_t b) {}
+// Possibly I will split this up further; adding a decodeEA(instruction) to pull out the data to a struct that we then send to readEA(struct)/writeEA(struct)...
+//
 
-uint32_t writeEA(uint8_t size, uint32_t value) {
-	uint32_t eaRegister;	// should be a pointer to the m(Data/Address)register[x] we wish to write.
-	uint32_t eaAddress;		// should be the calculated address pointed to by ea
+// these are the class variables.
+Register32 *mEARegister;	// should be a pointer to the m(Data/Address)register[x] we wish to write.
+uint32_t		mEAAddress;		// should be the calculated address pointed to by ea
+Register32			mDataRegister[8];
+Register32			mAddressRegister[8];
+uint32_t mPC;
 
-	if(eaRegister) {
+uint32_t readByte(uint32_t a) { return 0; }
+uint32_t readWord(uint32_t a) { return 0; }
+uint32_t readLong(uint32_t a) { return 0; }
+uint32_t writeByte(uint32_t a, uint32_t b) { return 0; }
+uint32_t writeWord(uint32_t a, uint32_t b) { return 0; }
+uint32_t writeLong(uint32_t a, uint32_t b) { return 0; }
+
+void writeEA(uint8_t size, uint32_t value) {
+
+	if(mEARegister) {
 		switch(size) {
-			case Size::BYTE: eaRegister = value & 0xff;		return;
-			case Size::WORD: eaRegister = value & 0xffff;	return;
-			case Size::LONG: eaRegister = value;					return;
+			case Size::BYTE: mEARegister->l = value & 0xff;		return;
+			case Size::WORD: mEARegister->w = value & 0xffff;	return;
+			case Size::LONG: mEARegister->d = value;					return;
 			default: return;
 		}
 	}
 
 	switch(size) {
-		case Size::BYTE:	writeByte(eaAddress, value & 0xff);		return;
-		case Size::WORD:	writeWord(eaAddress, value & 0xffff);	return;
-		case Size::LONG:	writeLong(eaAddress, value);					return;
+		case Size::BYTE:	writeByte(mEAAddress, value & 0xff);		return;
+		case Size::WORD:	writeWord(mEAAddress, value & 0xffff);	return;
+		case Size::LONG:	writeLong(mEAAddress, value);					return;
 	}
 }
 
+uint32_t maskVal(uint32_t a, uint8_t size) { return 0; }
+
 uint32_t loadEA(uint8_t size, uint8_t ea) {
+	mEARegister = 0;
+	mEAAddress	= 0;
+
+	uint32_t	dispReg;
+	uint32_t	operand;
+	uint8_t		regPos	= ea & 0x7;
+	uint8_t		mode		= (ea >> 3) & 0x7;
+
+	switch(mode) {
+		case 0:	// Dn						- Data Register Direct Mode
+			mEARegister = &mDataRegister[regPos];
+			return maskVal(mDataRegister[regPos], size);
+
+		case 1:	// An						- Address Register Direct Mode
+			mEARegister = &mAddressRegister[regPos];
+			return maskVal(mAddressRegister[regPos], size);
+
+		case 2:	// (An)					-	Address Register Indirect Mode
+			mEAAddress = mAddressRegister[regPos];
+			break;
+
+		case 3:	// (An)+				- Address Register Indirect with Postincrement Mode
+			mEAAddress = mAddressRegister[regPos];
+			if(size == Size::BYTE) {
+				if(regPos == 7) mEAAddress += 2;		// if a7 (Stackpointer)
+				else mEAAddress += 1;
+			} else if(size == Size::WORD) {
+				mEAAddress += 2;
+			} else if(size == Size::LONG) {
+				mEAAddress += 4;
+			}
+			break;
+
+		case 4:	// -(An)				- Address Register Indirect with Predecrement Mode
+			if(size == Size::BYTE) {
+				if(regPos == 7) mAddressRegister[regPos] -= 2;		// if a7 (Stackpointer)
+				else mAddressRegister[regPos] -= 1;
+			} else if(size == Size::WORD) {
+				mAddressRegister[regPos] -= 2;
+			} else if(size == Size::LONG) {
+				mAddressRegister[regPos] -= 4;
+			}
+			mEAAddress = mAddressRegister[regPos];
+			break;
+
+		case 5:	// (d16, An)		- Address Register Indirect with Displacement Mode
+			mEAAddress = mAddressRegister[regPos] + int32_t(int16_t(readWord(mPC)));	// sign-extend to 32bit.
+			mPC += 2;
+			break;
+
+		case 6:	// (d8, An, Xn)	- Address Register Indirect with Index (8-Bit Displacement) Mode
+			break;
+
+		case 7:
+			switch(regPos) {
+				case 0:	// Absolute Word	- Absolute Short Addressing Mode
+					mEAAddress = int32_t(int16_t(readWord(mPC)));
+					mPC += 2;
+					break;
+
+				case 1:	// Absolute Long	- Absolute Long Addressing Mode
+					mEAAddress = readLong(mPC);
+					mPC += 4;
+					break;
+
+				case 2:	// (d16, PC)			- Program Counter Indirect with Displacement Mode
+					mEAAddress = mPC + int16_t(readWord(mPC));
+					mPC += 2;
+					break;
+
+				case 3:	// (d8, PC, Xn)		- Program Counter Indirect with Index (8-Bit Displacement) Mode
+					break;
+
+				case 4:	// #imm						- Immediate Data
+					if(size == Size::BYTE) {
+						operand = readWord(mPC) & 0xff;
+					} else if(size == Size::WORD) {
+						operand = readWord(mPC);
+					} else if(size == Size::LONG) {
+						operand = readLong(mPC);
+					}
+					return operand;
+			}
+			break;
+	}
+
+	switch(size) {
+		case Size::BYTE:	operand = readByte(mEAAddress); break;
+		case Size::WORD:	operand = readWord(mEAAddress); break;
+		case Size::LONG:	operand = readLong(mEAAddress); break;
+	}
+
+	return operand;
 }
 
 
@@ -980,7 +1088,7 @@ uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t size) {
 			res = maskValue(mAddressRegister[reg], size);
 			break;
 		case 2:				// (An)
-			if(size == Size::BYTE) {					res = readByte(mAddressRegister[reg]);
+			if(size == Size::BYTE) {				res = readByte(mAddressRegister[reg]);
 			} else if(size == Size::WORD) {	res = readWord(mAddressRegister[reg]);
 			} else if(size == Size::LONG) {	res = readLong(mAddressRegister[reg]);
 			}
@@ -1019,13 +1127,13 @@ uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t size) {
 			}
 			break;
 		case 6:				// (d8,An,Xn) -- Address Register Indirect with Index (Base Displacement) Mode
-			uint16_t ext = readWord(mPC);
-			mPC += 2;
+//			uint16_t ext = readWord(mPC);
+//			mPC += 2;
 
-			uint8_t	extReg					= (ext >> 12) & 0x7;
-			bool		extSize					= (ext >> 11) & 0x1;
-			uint8_t extScale				= (ext >> 9) & 0x3;
-			int8_t	extDisplacement	= (ext) & 0xff;
+			//uint8_t	extReg					= (ext >> 12) & 0x7;
+			//bool		extSize					= (ext >> 11) & 0x1;
+			//uint8_t extScale				= (ext >> 9) & 0x3;
+			//int8_t	extDisplacement	= (ext) & 0xff;
 
 // 3D 73 40 02 00 12		move.w 2(a3, d4.w), $12(a6)
 //
