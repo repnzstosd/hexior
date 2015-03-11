@@ -429,34 +429,86 @@ int M68K::step() {
 					break;
 
 				default: // CMP
-					uint8_t destRegister		= (instruction >> 9) & 0x7;
-					uint8_t operationSize		= (instruction >> 6) & 0x3;
-					uint8_t sourceMode			= (instruction >> 3) & 0x7;
-					uint8_t sourceRegister	= instruction & 7;
+					uint8_t destReg			= (instruction >> 9) & 0x7;
+					uint8_t size				= (instruction >> 6) & 0x3;
+					uint8_t sourceMode	= (instruction >> 3) & 0x7;
+					uint8_t sourceReg		= instruction & 7;
 
 					int32_t source = 0;
 					int32_t destination = 0;
 					int64_t res = 0;
 
-					destination	= mDataRegister[destRegister];
-					if(operationSize == 0) {
+					destination	= mDataRegister[destReg];
+					if(size == Size::BYTE) {
 						destination &= 0xff;
-					} else if(operationSize == 1) {
+					} else if(size == Size::LONG) {
 						destination &= 0xffff;
 					}
 
-					source = readData(sourceMode, sourceRegister, operationSize);
+					source = readData(sourceMode, sourceReg, size);
 
 					res = destination - source;
 
-					setFlags(Flags::CMP, operationSize, res, source, destination);
+					setFlags(Flags::CMP, size, res, source, destination);
 
 					break;
 			}
 
 /* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xC ]}====- -===- -==- -==- -=- --- -- -  -   - */
 		case 0xc:
-			// AND, MULU, EXG, ABCD, MULS
+			switch(instruction & 0x01c0) {
+				case 0x00c0:	// MULU
+// only the MULU.W on 68000.
+//
+// Source x Destination -> Destination
+//
+// Multiplies two unsigned operands yielding an unsigned result.
+// In the word form, the multiplier and multiplicand are both word operands, and the result
+// is a long-word operand. A register operand is the low-order word; the upper word of the
+// register is ignored. All 32 bits of the product are saved in the destination data register.
+//
+// Mulu.w <ea>, Dn	16 * 16 -> 32
+//
+					break;
+				case 0x01c0:	// MULS
+					break;
+				case 0x0100:	// ABCD
+					break;
+
+				case 0x0140:	// EXG	opmode is 5 bits for EXG, the upper two is "01" or "10".. only way to get these is two cases as AND is 0xc000 masked.
+					// no break
+				case 0x0180:	// EXG
+
+					break;
+				default:			// AND	-- NOT TESTED
+/*
+opmode field
+Byte Word Long    Operation
+ 000  001  010     <ea> & Dn -> Dn
+ 100  101  110     Dn & <ea> -> <ea>
+*/
+					bool		dir		= (instruction >> 8) & 0x1;
+					uint8_t size	= (instruction >> 6) & 0x3;
+					uint8_t	dn		= (instruction >> 9) & 0x7;
+					uint8_t	mode	= (instruction >> 3) & 0x7;
+					uint8_t	reg		= (instruction) & 0x7;
+
+					uint32_t	dataRegister			= mDataRegister[dn];
+					uint32_t	effectiveAddress	= readData(mode, reg, size);
+					uint32_t	result						= 0;
+
+					if(dir) {	// destination is <ea>
+						result = dataRegister & effectiveAddress;
+						writeData(mode, reg, size, maskValue(result, size));
+						setFlags(Flags::LOGICAL, size, result, result, effectiveAddress);
+
+					} else {	// destination is Dn
+						result = effectiveAddress & dataRegister;
+						mDataRegister[dn] = maskValue(result, size);
+						setFlags(Flags::LOGICAL, size, result, result, dataRegister);
+					}
+			}
+
 			break;
 
 /* -   -  - -- --- -=- -==- -==- -===- -===={[ 0xD ]}====- -===- -==- -==- -=- --- -- -  -   - */
@@ -473,8 +525,7 @@ int M68K::step() {
 
 					if((sourceMode == 0x7) && (sourceRegister == 0x4)) { // Immediate
 						if(operationSize == 0) {
-							data = readWord(mPC);
-							if(data & 0x8000) data |= 0xffff0000;
+							data = int16_t(readWord(mPC));		// should be enough to sign-extend.
 							mPC += 2;
 						} else if(operationSize == 1) {
 							data = readLong(mPC);
@@ -677,7 +728,15 @@ int M68K::step() {
 	return 0;	// Number of cycles executed... <47
 }
 
-
+//
+// RENAME
+//
+// rename to msb(uint8_t size)?
+// getMSB should return the value, not the mask
+//
+// bitSize is ok
+// bitmask is ok
+//
 uint32_t M68K::getMSB(uint8_t size) {
 	switch(size) {
 		case Size::BYTE:	return 0x80;
