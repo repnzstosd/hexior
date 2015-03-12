@@ -867,7 +867,7 @@ void writeEA(uint8_t size, uint32_t value) {
 	switch(size) {
 		case Size::BYTE:	writeByte(mEAAddress, value & 0xff);		return;
 		case Size::WORD:	writeWord(mEAAddress, value & 0xffff);	return;
-		case Size::LONG:	writeLong(mEAAddress, value);					return;
+		case Size::LONG:	writeLong(mEAAddress, value);						return;
 	}
 }
 
