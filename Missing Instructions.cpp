@@ -93,3 +93,32 @@ AND
 ADD
 ADDX
 ADDA
+
+
+
+btst...
+
+for(i = 0; i < 7; ++i){
+	for(j = 0; j <= 0x3f; ++j) {
+		if(!checkEA(j, (char *)"101111111111")) continue;
+		opcodes[(i << 9) + j + 0x0100 = &core_68K::op_btst<true>;
+	}
+}
+
+0000 1110 0000 0000
+0000 0000 0011 1111
+0000 0001 0000 0000
+-------------------
+0000 1111 0011 1111
+
+
+
+
+
+ea is valid IIF
+MMM <= 7
+if MMM = 7
+  XN has to be between 0 and 5;
+
+10101000110
+

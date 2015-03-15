@@ -1,5 +1,51 @@
 #include "m68k.h"
 
+
+
+class Core_68k {
+	public:
+		void foo();
+		template<bool dynamic> void op_bset(uint16_t opcode);;
+		void (Core_68k::*opcodes[0x10000])(uint16_t opcode);
+};
+
+
+template<bool dynamic> void Core_68k::op_bset(uint16_t opcode) {
+	uint8_t reg, bit;
+ //   u8 size = ((opcode >> 3) & 7) == 0 ? SizeLong : SizeByte;
+
+ //   if (dynamic) {
+        reg = (opcode >> 9) & 7;
+//        bit = (size == SizeLong) ? reg_d[reg] & 31 : reg_d[reg] & 7;
+ //   } else {
+ //       bit = (size == SizeLong) ? reg_irc & 31 : reg_irc & 7;
+ //       readExtensionWord();
+ //   }
+
+	//u32 data = LoadEA(size, opcode & 0x3F);
+
+	//reg_s.z = !!( 1 ^ ((data >> bit) & 1) );
+	//data |= (1 << bit);
+ //   prefetch(isRegisterMode());
+
+ //   if (size == SizeLong) {
+ //       sync(2);
+ //       if (bit > 15) sync(2);
+ //   }
+ //   writeEA(size, data, true);
+}
+
+void Core_68k::foo() {
+	uint16_t i = 0;
+	opcodes[i + 0] = &Core_68k::op_bset<false>;
+	opcodes[i + 1] = &Core_68k::op_bset<true>;
+	opcodes[i + 2] = &Core_68k::op_bset<true>;
+	opcodes[i + 3] = &Core_68k::op_bset<true>;
+	opcodes[i + 4] = &Core_68k::op_bset<true>;
+	opcodes[i + 5] = &Core_68k::op_bset<true>;
+	opcodes[i + 6] = &Core_68k::op_bset<true>;
+}
+
 /* -   -  - -- --- -=- -==- -==- -===- -===={[ TODO ]}====- -===- -==- -==- -=- --- -- -  -   -
 
 -={[ Memory handling ]}=-
@@ -62,6 +108,8 @@ void M68K::reset() {
 	mSSP		= readLong(0x0);
 	mPC			= readLong(0x4);
 	mSR.SR	= 0x2700;
+	Core_68k a;
+	a.foo();
 }
 
 uint8_t M68K::readByte(uint32_t offset) {
@@ -1209,4 +1257,5 @@ uint32_t M68K::readData(uint8_t mode, uint8_t reg, uint8_t size) {
 	}
 	return res;
 }
+
 

@@ -18,6 +18,26 @@ Hexior::Hexior(QWidget *parent) : QMainWindow(parent) {
 
 }
 
+//int validateEA(uint8_t ea, char *valid) {  /* EA = MMMRRR (mode/reg) */
+//	uint8_t mode	= (ea >> 3) & 7;
+//	uint8_t reg		= (ea) & 7;
+//
+//	if(mode != 7) {
+//		if(valid[mode] == '1') return true;
+//	} else {
+//		if(reg >= 5) {
+//			return false;
+//		} else {
+//			if(reg == 2)			reg = 3;
+//			else if(reg == 3) reg = 4;
+//			else if(reg == 4) reg = 2;
+//			if(valid[8 + reg] == '1') return true;
+//		}
+//	}
+//
+//	return false;
+//};
+
 void Hexior::getRegisters() {
 
 	mAmiga.mM68K.step();
@@ -57,7 +77,12 @@ void Hexior::getRegisters() {
 		ui.textEdit->append(foo);
 	}
 
-
+	//for(int i = 0; i <= 7; ++i) {
+	//	for(int j = 0; j <= 0x3f; ++j) {
+	//		if (!validateEA(j, "101111111000")) continue;
+	//		ui.textEdit->append(QString("%1").arg((i << 9) + j + 0x140, 4, 16, QLatin1Char('0')));
+	//	}
+	//}
 }
 
 Hexior::~Hexior() {
